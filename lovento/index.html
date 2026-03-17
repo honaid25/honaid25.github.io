@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Пара App PWA</title>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#1a1a1a">
+<style>
+:root {
+  --bg-gradient: linear-gradient(135deg,#1a1a1a,#333);
+  --card-bg: #222;
+  --text-color: #fff;
+  --msg-user-bg: #007bff;
+  --msg-partner-bg: #555;
+  --input-bg: #333;
+  --input-text: #fff;
+  --btn-bg: #007bff;
+  --btn-color: #fff;
+  --calendar-bg: #222;
+  --nav-bg: #111;
+  --nav-color: #888;
+  --nav-active: #fff;
+}
+html,body{margin:0;padding:0;font-family:Arial;height:100%;background:var(--bg-gradient);color:var(--text-color);}
+body{display:flex;flex-direction:column;height:100vh;}
+.page{flex:1;display:none;padding:15px;overflow-y:auto;}
+.page.active{display:block;}
+.card{background:var(--card-bg);border-radius:16px;padding:15px;margin-bottom:12px;box-shadow:0 4px 10px rgba(0,0,0,0.3);}
+.bottom-nav{height:60px;background:var(--nav-bg);display:flex;justify-content:space-around;align-items:center;box-shadow:0 -2px 5px rgba(0,0,0,0.5);position:sticky;bottom:0;z-index:100;}
+.nav-item{display:flex;flex-direction:column;align-items:center;font-size:12px;color:var(--nav-color);cursor:pointer;transition:0.2s;}
+.nav-item.active{color:var(--nav-active);transform:scale(1.1);}
+.nav-item img{width:26px;margin-bottom:3px;}
+#chat-messages{max-height:50vh;overflow-y:auto;margin-bottom:10px;display:flex;flex-direction:column;}
+.message{padding:10px 14px;border-radius:20px;margin-bottom:8px;max-width:75%;word-wrap:break-word;color:#fff;}
+.message.user{background:var(--msg-user-bg);align-self:flex-start;}
+.message.partner{background:var(--msg-partner-bg);align-self:flex-end;}
+.message img{max-width:200px;max-height:200px;border-radius:12px;display:block;margin-top:5px;cursor:pointer;}
+#gallery-container{display:flex;flex-wrap:wrap;gap:8px;}
+#gallery-container img{width:80px;height:80px;object-fit:cover;border-radius:12px;cursor:pointer;}
+#calendar-events{list-style:none;padding:0;}
+#calendar-events li{background:var(--card-bg);padding:8px;margin-bottom:6px;border-radius:10px;box-shadow:0 2px 5px rgba(0,0,0,0.3);}
+#pair-link{background:var(--card-bg);border-radius:12px;padding:10px;margin-bottom:10px;box-shadow:0 2px 5px rgba(0,0,0,0.3);word-break:break-all;}
+#username-card{background:var(--card-bg);border-radius:12px;padding:12px;margin-bottom:12px;box-shadow:0 2px 5px rgba(0,0,0,0.3);}
+input,button{border-radius:8px;border:none;padding:8px;}
+input{background:var(--input-bg);color:var(--input-text);}
+button{background:var(--btn-bg);color:var(--btn-color);cursor:pointer;}
+@media(max-width:360px){.nav-item img{width:22px;}.card{padding:12px;}}
+</style>
+</head>
+<body>
+
+<!-- Главная -->
+<div id="page-home" class="page active">
+  <div id="username-card" class="card">
+    <h3>Введите ваше имя</h3>
+    <input type="text" id="username-input" placeholder="Ваше имя">
+    <button id="username-save">Сохранить</button>
+  </div>
+  <div class="card">
+    <h3>Подключите партнёра через ссылку:</h3>
+    <div id="pair-link"></div>
+  </div>
+</div>
+
+<!-- Подарки -->
+<div id="page-gifts" class="page">
+  <div class="card">Здесь можно просматривать подарки (заглушка)</div>
+</div>
+
+<!-- Чат -->
+<div id="page-chat" class="page">
+  <div id="chat-messages"></div>
+  <div style="display:flex; gap:4px; margin-top:6px;">
+    <input type="text" id="chat-input" placeholder="Сообщение..." style="flex:1;">
+    <input type="file" id="chat-image" accept="image/*">
+    <button id="chat-send">Отправить</button>
+  </div>
+</div>
+
+<!-- Галерея -->
+<div id="page-gallery" class="page">
+  <div id="gallery-container"></div>
+</div>
+
+<!-- Настройки -->
+<div id="page-settings" class="page">
+  <div class="card">
+    <h4>Календарь</h4>
+    <input type="text" id="event-input" placeholder="Новое событие">
+    <button id="add-event">Добавить</button>
+    <ul id="calendar-events"></ul>
+  </div>
+</div>
+
+<!-- Нижняя панель -->
+<div class="bottom-nav">
+  <div class="nav-item active" data-page="home"><img src="https://img.icons8.com/ios-filled/50/ffffff/home.png"/>Главная</div>
+  <div class="nav-item" data-page="gifts"><img src="https://img.icons8.com/ios-filled/50/ffffff/gift.png"/>Подарки</div>
+  <div class="nav-item" data-page="chat"><img src="https://img.icons8.com/ios-filled/50/ffffff/chat.png"/>Чат</div>
+  <div class="nav-item" data-page="gallery"><img src="https://img.icons8.com/ios-filled/50/ffffff/picture.png"/>Галерея</div>
+  <div class="nav-item" data-page="settings"><img src="https://img.icons8.com/ios-filled/50/ffffff/settings.png"/>Настройки</div>
+</div>
+
+<script>
+// Навигация
+const pages=document.querySelectorAll('.page');
+const navItems=document.querySelectorAll('.nav-item');
+navItems.forEach(item=>item.addEventListener('click',()=>{
+  navItems.forEach(i=>i.classList.remove('active'));
+  item.classList.add('active');
+  const target=item.getAttribute('data-page');
+  pages.forEach(p=>{p.classList.remove('active'); if(p.id==='page-'+target)p.classList.add('active');});
+}));
+
+// Пользователь и пара
+let userId=localStorage.getItem('userId');
+if(!userId){userId='user-'+Math.random().toString(36).substr(2,9); localStorage.setItem('userId',userId);}
+let pairId=localStorage.getItem('pairId');
+const urlParams=new URLSearchParams(window.location.search);
+if(urlParams.has('pair')){const linkId=urlParams.get('pair'); localStorage.setItem('pairId',linkId); pairId=linkId;}
+if(!pairId) pairId=userId;
+
+// Имя пользователя
+let username=localStorage.getItem('username');
+const usernameInput=document.getElementById('username-input');
+const usernameSave=document.getElementById('username-save');
+if(username){document.getElementById('username-card').style.display='none';}
+usernameSave.addEventListener('click',()=>{
+  const val=usernameInput.value.trim();
+  if(!val) return;
+  localStorage.setItem('username',val); username=val;
+  document.getElementById('username-card').style.display='none';
+});
+
+// Ссылка для подключения
+document.getElementById('pair-link').textContent=window.location.origin+'/?pair='+userId;
+
+// Чат
+const chatInput=document.getElementById('chat-input');
+const chatSend=document.getElementById('chat-send');
+const chatMessages=document.getElementById('chat-messages');
+const chatImage=document.getElementById('chat-image');
+
+let messages=JSON.parse(localStorage.getItem('chat_'+pairId)||'[]');
+function renderMessages(){
+  chatMessages.innerHTML='';
+  messages.forEach(m=>{
+    const div=document.createElement('div');
+    div.className='message'+(m.user===username?' user':' partner');
+    div.textContent=m.user+': ';
+    if(m.text) div.append(m.text);
+    if(m.img){
+      const img=document.createElement('img'); img.src=m.img;
+      img.addEventListener('click',()=>window.open(m.img));
+      div.appendChild(img);
+    }
+    chatMessages.appendChild(div);
+  });
+  chatMessages.scrollTop=chatMessages.scrollHeight;
+}
+renderMessages();
+
+chatSend.addEventListener('click',()=>{
+  const text=chatInput.value.trim();
+  if(!username) return;
+  if(chatImage.files[0]){
+    const reader=new FileReader();
+    reader.onload=(e)=>{
+      messages.push({text,text,img:e.target.result,user:username});
+      localStorage.setItem('chat_'+pairId,JSON.stringify(messages));
+      chatInput.value=''; chatImage.value='';
+      renderMessages(); renderGallery();
+    };
+    reader.readAsDataURL(chatImage.files[0]);
+  } else {
+    if(!text) return;
+    messages.push({text,user:username});
+    localStorage.setItem('chat_'+pairId,JSON.stringify(messages));
+    chatInput.value=''; renderMessages(); renderGallery();
+  }
+});
+
+// Галерея
+const galleryContainer=document.getElementById('gallery-container');
+function renderGallery(){
+  galleryContainer.innerHTML='';
+  messages.forEach(m=>{
+    if(m.img){
+      const img=document.createElement('img'); img.src=m.img;
+      img.addEventListener('click',()=>window.open(m.img));
+      galleryContainer.appendChild(img);
+    }
+  });
+}
+renderGallery();
+
+// Календарь
+const eventInput=document.getElementById('event-input');
+const addEvent=document.getElementById('add-event');
+const calendarEvents=document.getElementById('calendar-events');
+let events=JSON.parse(localStorage.getItem('events_'+pairId)||'[]');
+function renderEvents(){ calendarEvents.innerHTML=''; events.forEach(ev=>{const li=document.createElement('li'); li.textContent=ev; calendarEvents.appendChild(li);}); }
+renderEvents();
+addEvent.addEventListener('click',()=>{
+  const val=eventInput.value.trim(); if(!val) return;
+  events.push(val); localStorage.setItem('events_'+pairId,JSON.stringify(events)); eventInput.value=''; renderEvents();
+});
+
+// Регистрация Service Worker
+if('serviceWorker' in navigator){
+  navigator.serviceWorker.register('sw.js').then(()=>console.log('SW зарегистрирован')).catch(console.error);
+}
+</script>
+
+</body>
+</html>
